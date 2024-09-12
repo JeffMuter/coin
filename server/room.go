@@ -72,14 +72,12 @@ func (room *Room) removeClient(user *User) {
 	room.mu.Lock()
 	defer room.mu.Unlock()
 
-	for userKey, _ := range room.users {
-		delete(room.users, userKey)
-	}
+	delete(room.users, user.id)
 	user.connection.Close()
 
 	if len(room.users) == 0 {
 		close(room.messages)
-
+		// TODO: need to handle removing room from the server
 	}
 }
 

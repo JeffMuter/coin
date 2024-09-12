@@ -17,6 +17,7 @@ type RoomServer struct {
 func NewRoomServer() *RoomServer {
 	return &RoomServer{
 		rooms: make(map[string]*Room),
+		users: make(map[string]*User),
 	}
 }
 
@@ -34,7 +35,7 @@ func (roomServer *RoomServer) Start(addr string) error {
 			fmt.Println("error accepting connection: ", err)
 			continue
 		}
-		go roomServer.handleNewClientConnection(conn)
+		go roomServer.handleNewUserConnection(conn)
 	}
 }
 
@@ -52,11 +53,11 @@ func (roomServer *RoomServer) addUser(user *User) {
 	roomServer.users[user.id] = user
 }
 
-func (roomServer *RoomServer) handleNewClientConnection(conn net.Conn) {
+func (roomServer *RoomServer) handleNewUserConnection(conn net.Conn) {
 	defer conn.Close()
-	// implement future logic here.
 
 	conn.Write([]byte("welcome to coin...\n"))
+
 	//create new user
 	user := newUserFromConn(conn)
 
@@ -64,7 +65,7 @@ func (roomServer *RoomServer) handleNewClientConnection(conn net.Conn) {
 	roomServer.addUser(user)
 
 	for { // infinite loop until meinMenu returns non nil err
-		err := mainMenu(conn, roomServer)
+		err := mainMenu(user, roomServer)
 		if err != nil {
 			fmt.Println("error in main menu: %w,", err)
 			break
@@ -72,14 +73,20 @@ func (roomServer *RoomServer) handleNewClientConnection(conn net.Conn) {
 	}
 }
 
+// removes room from roomserver
+func (roomServer *RoomServer) removeRoom(room *Room) {
+	roomServer.mu.Lock()
+	defer roomServer.mu.Unlock()
+
+	delete(roomServer.rooms, room.name)
+}
+
 // Remove user from from server
 func (roomServer *RoomServer) removeUser(user *User) {
 	roomServer.mu.Lock()
 	defer roomServer.mu.Unlock()
 
-	for userKey, _ := range roomServer.users {
-		delete(roomServer.users, userKey)
-	}
+	delete(roomServer.users, user.id)
 	user.connection.Close()
 }
 
@@ -115,23 +122,26 @@ func mainMenu(user *User, roomServer *RoomServer) error {
 		roomServer.addRoom(roomName, newRoom)
 	case "1": // join existing room
 		//get choice on room name
-		for _, room := range roomServer.rooms {
-			user.connection.Write([]byte(room.name))
-		}
-		roomChoice, _ := reader.ReadString('\n')
+		user.connection.Write([]byte("enter room name to join...\n"))
+		for {
+			roomChoice, _ := reader.ReadString('\n')
+			roomChoice = strings.TrimSpace(roomChoice)
 
-		// check to see if room exists
-		room, ok := roomServer.rooms[roomChoice]
-		if ok {
-			// add user to this room
-			room.addUser(user)
-		} else {
-
+			// check to see if room exists
+			room, ok := roomServer.rooms[roomChoice]
+			if ok {
+				// add user to this room
+				room.addUser(user)
+				// TODO: some logic needs here for what to do to send user to a room.
+				// valid input
+				break
+			} else {
+				user.connection.Write([]byte("room not found, try again\n"))
+				continue
+			}
 		}
-		//if it doesn't, try again,
-		// if it does, add user to room.
-		// user must be sent to the room
 	case "2": // quit the program
+		roomServer.removeUser(user)
 		return fmt.Errorf("quit: user chose to quit")
 	}
 	return nil

@@ -3,8 +3,6 @@ package server
 import (
 	"bufio"
 	"net"
-	"strconv"
-	"time"
 )
 
 type User struct {
@@ -14,14 +12,11 @@ type User struct {
 }
 
 func newUserFromConn(conn net.Conn) *User {
-	userId := "user-" + strconv.FormatInt(time.Now().UnixNano(), 10)
-	userName := getUserName(conn)
-	user := &User{
-		id:         userId,
-		name:       userName,
+	return &User{
+		id:         conn.RemoteAddr().String(),
+		name:       "guest",
 		connection: conn,
 	}
-	return user
 }
 
 func getUserName(conn net.Conn) string {
