@@ -110,6 +110,8 @@ func mainMenu(user *User, roomServer *RoomServer) error {
 	choice, _ := reader.ReadString('\n')
 	choice = strings.TrimSpace(choice)
 
+	var room *Room
+
 	// now add option switch statement
 	switch choice {
 	case "0": // create new room.
@@ -117,9 +119,12 @@ func mainMenu(user *User, roomServer *RoomServer) error {
 		// get name for room
 		roomName, _ := reader.ReadString('\n')
 		//create room
-		newRoom := newRoom(roomName)
+		room = newRoom(roomName)
 		// add new server to roomserver map
-		roomServer.addRoom(roomName, newRoom)
+		roomServer.addRoom(roomName, room)
+
+		return nil
+
 	case "1": // join existing room
 		//get choice on room name
 		user.connection.Write([]byte("enter room name to join...\n"))
@@ -132,9 +137,8 @@ func mainMenu(user *User, roomServer *RoomServer) error {
 			if ok {
 				// add user to this room
 				room.addUser(user)
-				// TODO: some logic needs here for what to do to send user to a room.
 				// valid input
-				break
+				return nil
 			} else {
 				user.connection.Write([]byte("room not found, try again\n"))
 				continue
@@ -144,5 +148,9 @@ func mainMenu(user *User, roomServer *RoomServer) error {
 		roomServer.removeUser(user)
 		return fmt.Errorf("quit: user chose to quit")
 	}
+
+	go room.handleUserMessages(user) // Start goroutine to read user messages
+	go room.broadcastCurrentMessages(user)
+
 	return nil
 }

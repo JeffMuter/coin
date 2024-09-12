@@ -1,7 +1,9 @@
 package server
 
 import (
+	"bufio"
 	"fmt"
+	"strings"
 	"sync"
 )
 
@@ -30,17 +32,30 @@ func (room *Room) addUser(user *User) {
 	room.users[user.name] = user
 }
 
-// BroadcastMessages sends messages to all users in the room.
-func (room *Room) broadcastMessages() {
+// broadcastMessages prints the room's existing messages to the user's screen
+func (room *Room) broadcastCurrentMessages(user *User) {
 	for msg := range room.messages {
 		room.mu.Lock()
-		for _, user := range room.users {
-			_, err := user.connection.Write([]byte(msg))
-			if err != nil {
-				fmt.Println("Error sending message:", err)
-			}
-		}
+		user.connection.Write([]byte(msg))
 		room.mu.Unlock()
+	}
+}
+
+func (room *Room) handleUserMessages(user *User) {
+	reader := bufio.NewReader(user.connection)
+	for {
+		msg, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Println("error reading from user input: ", err)
+			return
+		}
+		msg = strings.TrimSpace(msg)
+
+		if strings.HasPrefix(msg, "/") {
+			// add a command handler here.
+			continue
+		}
+		room.messages <- fmt.Sprintf("%s: %s\n", user.name, msg)
 	}
 }
 
