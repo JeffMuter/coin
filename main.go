@@ -15,4 +15,5 @@ func main() {
 		fmt.Println("Error starting server:", err)
 		os.Exit(1)
 	}
+	// for each room of the srv, we want to continually keep open the listen
 }

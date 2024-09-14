@@ -65,12 +65,15 @@ func (roomServer *RoomServer) handleNewUserConnection(conn net.Conn) {
 	roomServer.addUser(user)
 
 	for { // infinite loop until meinMenu returns non nil err
-		err := mainMenu(user, roomServer)
+		room, err := mainMenu(user, roomServer)
 		if err != nil {
 			fmt.Println("error in main menu: %w,", err)
 			break
+		} else if room != nil {
+			break
 		}
 	}
+	roomServer.HandleServerRoomsProcesses()
 }
 
 // removes room from roomserver
@@ -90,8 +93,8 @@ func (roomServer *RoomServer) removeUser(user *User) {
 	user.connection.Close()
 }
 
-func mainMenu(user *User, roomServer *RoomServer) error {
-	defer user.connection.Close()
+func mainMenu(user *User, roomServer *RoomServer) (*Room, error) {
+	fmt.Println("start main menu")
 	reader := bufio.NewReader(user.connection)
 
 	// list out the rooms
@@ -118,12 +121,15 @@ func mainMenu(user *User, roomServer *RoomServer) error {
 		user.connection.Write([]byte("enter room name:\n"))
 		// get name for room
 		roomName, _ := reader.ReadString('\n')
+		roomName = strings.TrimSpace(roomName)
 		//create room
 		room = newRoom(roomName)
+		room.addUser(user)
 		// add new server to roomserver map
 		roomServer.addRoom(roomName, room)
+		fmt.Printf("name: %s\nmessages: %v,\nusers: %v\nconn: %v\n", room.name, room.messages, room.users, user.connection)
 
-		return nil
+		return room, nil
 
 	case "1": // join existing room
 		//get choice on room name
@@ -135,10 +141,8 @@ func mainMenu(user *User, roomServer *RoomServer) error {
 			// check to see if room exists
 			room, ok := roomServer.rooms[roomChoice]
 			if ok {
-				// add user to this room
-				room.addUser(user)
-				// valid input
-				return nil
+				room.addUser(user) // add user to this room
+				return room, nil
 			} else {
 				user.connection.Write([]byte("room not found, try again\n"))
 				continue
@@ -146,11 +150,25 @@ func mainMenu(user *User, roomServer *RoomServer) error {
 		}
 	case "2": // quit the program
 		roomServer.removeUser(user)
-		return fmt.Errorf("quit: user chose to quit")
+		user.connection.Close()
+		return room, fmt.Errorf("quit: user chose to quit")
 	}
 
-	go room.handleUserMessages(user) // Start goroutine to read user messages
-	go room.broadcastCurrentMessages(user)
+	fmt.Println("end of mainMen")
 
-	return nil
+	return room, nil
+}
+
+func (roomServer *RoomServer) HandleServerRoomsProcesses() {
+
+	for {
+		for _, room := range roomServer.rooms {
+
+			for _, user := range room.users {
+				go room.broadcastMessages()
+				go room.handleNewMessage(user)
+			}
+
+		}
+	}
 }
