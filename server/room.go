@@ -19,7 +19,7 @@ type Room struct {
 func newRoom(roomName string) *Room {
 	return &Room{
 		users:     make(map[string]*User),
-		messages:  make(chan string),
+		messages:  make(chan string, 10),
 		name:      roomName,
 		maxPeople: 4,
 	}
@@ -28,9 +28,7 @@ func newRoom(roomName string) *Room {
 // AddClient adds a client to the room.
 func (room *Room) addUser(user *User) {
 	room.mu.Lock()
-
 	room.users[user.name] = user
-
 	room.mu.Unlock()
 }
 
@@ -74,29 +72,6 @@ func (room *Room) handleNewMessage(user *User) {
 		room.messages <- user.name + " " + msg
 	}
 }
-
-//commented because we're not using this yet.
-// HandleClient reads messages from a client and broadcasts them.
-//func (room *Room) HandleClientMessages(conn net.Conn) error {
-//	reader := bufio.NewReader(conn)
-//	for {
-//		msg, err := reader.ReadString('\n')
-//		if err != nil {
-//			fmt.Println("Error reading from client:", err)
-//			room.RemoveClient(conn)
-//			return fmt.Errorf("error reading message from client (msg: %s): %w,", msg, err)
-//		}
-//		if strings.HasPrefix(msg, "/") { // with a / prefix, it's assumed to be a command
-//			err = room.handleCommand(conn, msg)
-//			if err != nil {
-//				return fmt.Errorf("error handling detected commend (cmd: %s): %w,", msg, err)
-//			}
-//		} else {
-//			// broadcast the message, assume it's a normal message
-//			room.messages <- fmt.Sprintf("%s: %s\n", conn.RemoteAddr(), msg)
-//		}
-//	}
-//}
 
 // RemoveClient removes a client from the room.
 func (room *Room) removeClient(user *User) {

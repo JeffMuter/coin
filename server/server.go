@@ -70,10 +70,10 @@ func (roomServer *RoomServer) handleNewUserConnection(conn net.Conn) {
 			fmt.Println("error in main menu: %w,", err)
 			break
 		} else if room != nil {
+			handleRoom(user, room)
 			break
 		}
 	}
-	roomServer.HandleServerRoomsProcesses()
 }
 
 // removes room from roomserver
@@ -139,7 +139,9 @@ func mainMenu(user *User, roomServer *RoomServer) (*Room, error) {
 			roomChoice = strings.TrimSpace(roomChoice)
 
 			// check to see if room exists
+			roomServer.mu.Lock()
 			room, ok := roomServer.rooms[roomChoice]
+			roomServer.mu.Unlock()
 			if ok {
 				room.addUser(user) // add user to this room
 				return room, nil
@@ -159,16 +161,44 @@ func mainMenu(user *User, roomServer *RoomServer) (*Room, error) {
 	return room, nil
 }
 
-func (roomServer *RoomServer) HandleServerRoomsProcesses() {
-
-	for {
-		for _, room := range roomServer.rooms {
-
-			for _, user := range room.users {
-				go room.broadcastMessages()
-				go room.handleNewMessage(user)
+func handleRoom(user *User, room *Room) {
+	fmt.Println(len(room.messages))
+	for message := range room.messages {
+		fmt.Println("room msg: %s\n" + message)
+	}
+	// Create a separate goroutine to print out new messages as they are received
+	go func() {
+		for msg := range room.messages {
+			// Broadcast the message to all users in the room
+			room.mu.Lock() // Ensure thread-safe access to the users list
+			for _, u := range room.users {
+				_, err := u.connection.Write([]byte(msg + "\n"))
+				if err != nil {
+					fmt.Printf("Error sending message to user %s: %v\n", u.name, err)
+				}
 			}
-
+			room.mu.Unlock()
 		}
+	}()
+
+	// Now, listen for user's input and send it to the room's messages channel
+	reader := bufio.NewReader(user.connection)
+	for {
+		// Read message from user input
+		userMsg, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Println("Error reading user message:", err)
+			break
+		}
+
+		// Clean up the message
+		userMsg = strings.TrimSpace(userMsg)
+		if userMsg == "" {
+			continue // Skip if the user sends an empty message
+		}
+
+		// Send the message to the room's messages channel
+		fullMsg := fmt.Sprintf("%s: %s", user.name, userMsg)
+		room.messages <- fullMsg
 	}
 }
