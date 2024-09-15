@@ -19,7 +19,7 @@ type Room struct {
 func newRoom(roomName string) *Room {
 	return &Room{
 		users:     make(map[string]*User),
-		messages:  make(chan string, 10),
+		messages:  make(chan string, 100),
 		name:      roomName,
 		maxPeople: 4,
 	}
@@ -28,7 +28,7 @@ func newRoom(roomName string) *Room {
 // AddClient adds a client to the room.
 func (room *Room) addUser(user *User) {
 	room.mu.Lock()
-	room.users[user.name] = user
+	room.users[user.id] = user
 	room.mu.Unlock()
 }
 

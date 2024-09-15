@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -41,16 +42,14 @@ func (roomServer *RoomServer) Start(addr string) error {
 
 func (roomServer *RoomServer) addRoom(roomName string, room *Room) {
 	roomServer.mu.Lock()
-	defer roomServer.mu.Unlock()
-
 	roomServer.rooms[roomName] = room
+	roomServer.mu.Unlock()
 }
 
 func (roomServer *RoomServer) addUser(user *User) {
 	roomServer.mu.Lock()
-	defer roomServer.mu.Unlock()
-
 	roomServer.users[user.id] = user
+	roomServer.mu.Unlock()
 }
 
 func (roomServer *RoomServer) handleNewUserConnection(conn net.Conn) {
@@ -70,6 +69,7 @@ func (roomServer *RoomServer) handleNewUserConnection(conn net.Conn) {
 			fmt.Println("error in main menu: %w,", err)
 			break
 		} else if room != nil {
+			fmt.Println("userCount: " + strconv.Itoa(len(room.users)))
 			handleRoom(user, room)
 			break
 		}
@@ -162,10 +162,8 @@ func mainMenu(user *User, roomServer *RoomServer) (*Room, error) {
 }
 
 func handleRoom(user *User, room *Room) {
-	fmt.Println(len(room.messages))
-	for message := range room.messages {
-		fmt.Println("room msg: %s\n" + message)
-	}
+	fmt.Printf("count room messages: %d\n", len(room.messages))
+
 	// Create a separate goroutine to print out new messages as they are received
 	go func() {
 		for msg := range room.messages {
@@ -199,6 +197,7 @@ func handleRoom(user *User, room *Room) {
 
 		// Send the message to the room's messages channel
 		fullMsg := fmt.Sprintf("%s: %s", user.name, userMsg)
+		fmt.Println("adding fullmsg: " + fullMsg)
 		room.messages <- fullMsg
 	}
 }
