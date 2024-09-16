@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"net"
+	"strings"
 )
 
 type User struct {
@@ -11,10 +12,10 @@ type User struct {
 	connection net.Conn
 }
 
-func newUserFromConn(conn net.Conn) *User {
+func newUserFromConn(conn net.Conn, name string) *User {
 	return &User{
 		id:         conn.RemoteAddr().String(),
-		name:       "guest",
+		name:       name,
 		connection: conn,
 	}
 }
@@ -22,5 +23,6 @@ func newUserFromConn(conn net.Conn) *User {
 func getUserName(conn net.Conn) string {
 	reader := bufio.NewReader(conn)
 	choice, _ := reader.ReadString('\n')
-	return choice
+	cleanChoice := strings.TrimSpace(choice)
+	return cleanChoice
 }

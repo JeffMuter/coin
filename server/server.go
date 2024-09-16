@@ -55,10 +55,11 @@ func (roomServer *RoomServer) addUser(user *User) {
 func (roomServer *RoomServer) handleNewUserConnection(conn net.Conn) {
 	defer conn.Close()
 
-	conn.Write([]byte("welcome to coin...\n"))
+	conn.Write([]byte("welcome to coin...\ncreate a username:"))
 
 	//create new user
-	user := newUserFromConn(conn)
+	name := getUserName(conn)
+	user := newUserFromConn(conn, name)
 
 	// add user to roomServer
 	roomServer.addUser(user)
