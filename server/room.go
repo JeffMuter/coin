@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"fmt"
+	"net"
 	"strings"
 	"sync"
 )
@@ -94,4 +95,16 @@ func listRooms(roomServer *RoomServer) ([]string, error) {
 		roomList = append(roomList, room.name)
 	}
 	return roomList, nil
+}
+func makeRoomName(mapRooms map[string]*Room, reader *bufio.Reader, conn net.Conn) (string, error) {
+
+	for {
+		roomName, _ := reader.ReadString('\n')
+		roomName = strings.TrimSpace(roomName)
+		for _, thisRoom := range mapRooms {
+			if thisRoom.name == roomName {
+				conn.Write([]byte("a room with this name already exists, room names must be unique, choose another:\n"))
+			}
+		}
+	}
 }

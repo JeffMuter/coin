@@ -52,13 +52,16 @@ func (roomServer *RoomServer) addUser(user *User) {
 	roomServer.mu.Unlock()
 }
 
-func (roomServer *RoomServer) handleNewUserConnection(conn net.Conn) {
+func (roomServer *RoomServer) handleNewUserConnection(conn net.Conn) error {
 	defer conn.Close()
 
 	conn.Write([]byte("welcome to coin...\ncreate a username:"))
 
 	//create new user
-	name := getUserName(conn)
+	name, err := makeUserName(conn, roomServer.users)
+	if err != nil {
+		return fmt.Errorf("error getting unique user name")
+	}
 	user := newUserFromConn(conn, name)
 
 	// add user to roomServer
@@ -67,14 +70,16 @@ func (roomServer *RoomServer) handleNewUserConnection(conn net.Conn) {
 	for { // infinite loop until meinMenu returns non nil err
 		room, err := mainMenu(user, roomServer)
 		if err != nil {
-			fmt.Println("error in main menu: %w,", err)
-			break
+			return fmt.Errorf("error in main menu: %w", err)
 		} else if room != nil {
 			fmt.Println("userCount: " + strconv.Itoa(len(room.users)))
 			handleRoom(user, room)
 			break
+		} else {
+			return fmt.Errorf("error getting room from main menu")
 		}
 	}
+	return nil
 }
 
 // removes room from roomserver
@@ -121,8 +126,10 @@ func mainMenu(user *User, roomServer *RoomServer) (*Room, error) {
 	case "0": // create new room.
 		user.connection.Write([]byte("enter room name:\n"))
 		// get name for room
-		roomName, _ := reader.ReadString('\n')
-		roomName = strings.TrimSpace(roomName)
+		roomName, err := makeRoomName(roomServer.rooms, reader, user.connection)
+		if err != nil {
+			return room, fmt.Errorf("error making room name: %w", err)
+		}
 		//create room
 		room = newRoom(roomName)
 		room.addUser(user)
