@@ -29,15 +29,17 @@ func getUserName(conn net.Conn) string {
 
 func makeUserName(conn net.Conn, userMap map[string]*User) (string, error) {
 
+	var name string
+loop:
 	for { // loop continues until a chose name is unique
-		name := getUserName(conn)
+		name = getUserName(conn)
 		for _, thisUser := range userMap {
 			if thisUser.name == name {
 				conn.Write([]byte("this user name is currently taken. Your name must be unique, try again...\n"))
 			} else {
-				break
+				break loop
 			}
 		}
-		break
 	}
+	return name, nil
 }
